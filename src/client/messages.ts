@@ -59,9 +59,12 @@ export function taskMessageRows(entries: readonly HistoryEntry[] | undefined): T
 /**
  * Extract the task's OWN message rows, hiding the forked seed context: the
  * side task carries the owner's full history in its log, but the panel is a
- * scratchpad — it shows only messages written after the seed boundary
- * (`session/end-seed`). A page that does not reach the boundary (a task with
- * more messages than one page) falls back to the whole page.
+ * scratchpad — it shows only messages written after the task's OWN seed
+ * boundary. The boundary is the LAST `session/end-seed`: the seed may itself
+ * nest earlier end-seed markers (the owner was resumed or forked before),
+ * and only the task's own marker sits after all seeded messages. A page that
+ * does not reach the boundary (a task with more messages than one page)
+ * falls back to the whole page.
  * @param entries - pulled history entries, or undefined while none are loaded.
  * @returns the ordered text rows of the task's own conversation.
  */
@@ -71,7 +74,6 @@ export function taskOwnMessageRows(entries: readonly HistoryEntry[] | undefined)
   for (const entry of entries) {
     if (entry.event.type === 'session/end-seed') {
       seedBoundary = entry.event.seq
-      break
     }
   }
   const own = seedBoundary === undefined

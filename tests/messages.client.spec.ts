@@ -121,3 +121,22 @@ describe('taskOwnMessageRows (seed-hidden)', () => {
     expect(taskOwnMessageRows(undefined)).toEqual([])
   })
 })
+
+describe('taskOwnMessageRows nested seeds', () => {
+  it('uses the LAST end-seed: a resumed/forked owner nests earlier markers in the seed', () => {
+    // The owner was itself resumed, so its seed carries an end-seed; the
+    // task's own marker sits after all seeded messages. Only the last marker
+    // is the task boundary — anything before it is still the owner's context.
+    const entries = [
+      entry('user/message', { content: [{ type: 'text', text: 'owner old' }] }, 1),
+      entry('session/end-seed', {}, 2),
+      entry('user/message', { content: [{ type: 'text', text: 'owner latest' }] }, 3),
+      entry('assistant/message', { message: { content: [{ type: 'text', text: 'owner reply' }] } }, 4),
+      entry('session/end-seed', {}, 5),
+      entry('user/message', { content: [{ type: 'text', text: 'task message' }] }, 6),
+    ]
+    expect(taskOwnMessageRows(entries)).toEqual([
+      { role: 'user', text: 'task message' },
+    ])
+  })
+})

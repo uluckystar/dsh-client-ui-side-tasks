@@ -341,7 +341,9 @@
 /* Collapsed resting state: a compact top-right chip. */
 .chip {
   position: absolute;
-  top: 12px;
+  /* Below the conversation header, so the chip never covers the header's
+     export/utility actions in the top-right corner. */
+  top: 56px;
   right: 12px;
   display: inline-flex;
   align-items: center;
@@ -384,4 +386,12 @@
   font-size: 11px;
   line-height: 16px;
   text-align: center;
+}
+
+.expiry {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
 }

@@ -71,6 +71,8 @@ function renderPanel(options: {
   historyError?: string
   /** Resolve fetchHistory after this many microtasks (loading-state test). */
   deferred?: boolean
+  /** Epoch-ms last activity per task (drives the expiry countdown). */
+  lastActivity?: Record<string, number>
   current?: string | undefined
   /** Session-list rows; defaults to one row per task, override to omit some. */
   rows?: Record<string, { title?: string; running?: boolean }>
@@ -82,6 +84,9 @@ function renderPanel(options: {
     draft.actionError = options.actionError ?? null
     if (options.tasks !== undefined) {
       draft.tasksBySession['session-1' as never] = options.tasks as never
+    }
+    if (options.lastActivity !== undefined) {
+      draft.lastActivity = options.lastActivity as never
     }
   })
 
@@ -323,7 +328,7 @@ describe('SideTaskPanel mini conversation (pull-based)', () => {
       running: true,
       history: [messageEntry('user/message', 'go', 1)],
     })
-    await waitFor(() => expect(screen.getByText('运行中')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('运行中').length).toBeGreaterThanOrEqual(2))
     fireEvent.click(screen.getByRole('button', { name: '停止' }))
     expect(stopTask).toHaveBeenCalledWith('task-a')
   })
@@ -440,5 +445,37 @@ describe('SideTaskPanel action error bar', () => {
     const { dismissError } = renderPanel({ tasks: ['task-a'], actionError: 'boom' })
     fireEvent.click(screen.getByRole('button', { name: '关闭错误提示' }))
     expect(dismissError).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('SideTaskPanel expiry countdown', () => {
+  it('shows the remaining time for each task based on its last activity', () => {
+    // A task touched 30 minutes ago with a 60-minute TTL has ~30 minutes left.
+    renderPanel({
+      tasks: ['task-a'],
+      lastActivity: { 'task-a': Date.now() - 30 * 60 * 1000 },
+    })
+    expect(screen.getByText(/还剩 \d+ 分钟自动删除/)).toBeTruthy()
+  })
+
+  it('ticks the countdown clock each second', () => {
+    vi.useFakeTimers()
+    try {
+      renderPanel({
+        tasks: ['task-a'],
+        lastActivity: { 'task-a': Date.now() - 30 * 60 * 1000 },
+      })
+      act(() => { vi.advanceTimersByTime(1000) })
+      expect(screen.getByText(/还剩 \d+ 分钟自动删除/)).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows no countdown for a task without a recorded activity timestamp', () => {
+    renderPanel({ tasks: ['task-a'] })
+    // The row carries no per-task expiry readout (the static footer hint is
+    // not a countdown).
+    expect(screen.queryByText(/还剩 \d+ 分钟自动删除/)).toBeNull()
   })
 })

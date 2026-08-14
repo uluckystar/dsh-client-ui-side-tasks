@@ -20,6 +20,7 @@ import type { HistoryEntry, SessionId } from '@deepseek-ai/dsh-api-remotes/clien
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NS } from './locales.ts'
 import { taskOwnMessageRows } from './messages.ts'
+import { SIDE_TASK_TTL_MS } from './controller.ts'
 import type { SideTaskState } from './store.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import css from './SideTaskPanel.module.css'
@@ -127,6 +128,13 @@ export function SideTaskPanel({
   const [reloadKey, setReloadKey] = useState(0)
   const prevRunningRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // The countdown clock: one tick per second drives each row's remaining
+  // time, so the expiry readout stays live without any model round-trip.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => { clearInterval(timer) }
+  }, [])
 
   const rows = useMemo(() => taskRows(current, state, byId), [current, state, byId])
   // A selection whose child is no longer rendered (deleted elsewhere, pruned
@@ -241,31 +249,44 @@ export function SideTaskPanel({
           <p className={css.empty}>{t('panel.empty')}</p>
         ) : (
           <ul className={css.taskList}>
-            {rows.map(row => (
-              <li key={row.childId} className={css.taskRow}>
-                <button
-                  type="button"
-                  className={selected === row.childId ? `${css.taskButton} ${css.taskSelected}` : css.taskButton}
-                  aria-label={t('task.select')}
-                  onClick={() => selectTask(row.childId)}
-                >
-                  <span className={row.running ? css.dotRunning : css.dot} aria-hidden="true" />
-                  <span className={css.taskTitle}>{row.title}</span>
-                </button>
-                <button
-                  type="button"
-                  className={css.delete}
-                  aria-label={confirming === row.childId
-                    ? (row.running ? t('task.delete.confirm.running') : t('task.delete.confirm'))
-                    : t('task.delete')}
-                  onClick={() => onDelete(row.childId)}
-                >
-                  {confirming === row.childId
-                    ? (row.running ? t('task.delete.confirm.running') : t('task.delete.confirm'))
-                    : t('task.delete')}
-                </button>
-              </li>
-            ))}
+            {rows.map(row => {
+              const last = state.lastActivity[row.childId]
+              // Remaining expiry time, whole minutes rounded up; absent for
+              // legacy tasks without a recorded activity timestamp.
+              const remainingMs = last === undefined ? undefined : Math.max(0, last + SIDE_TASK_TTL_MS - now)
+              return (
+                <li key={row.childId} className={css.taskRow}>
+                  <button
+                    type="button"
+                    className={selected === row.childId ? `${css.taskButton} ${css.taskSelected}` : css.taskButton}
+                    aria-label={t('task.select')}
+                    onClick={() => selectTask(row.childId)}
+                  >
+                    <span className={row.running ? css.dotRunning : css.dot} aria-hidden="true" />
+                    <span className={css.taskTitle}>{row.title}</span>
+                  </button>
+                  <span className={css.expiry} aria-hidden="true">
+                    {row.running
+                      ? t('task.running')
+                      : remainingMs === undefined
+                        ? ''
+                        : t('task.expiresIn', { minutes: Math.ceil(remainingMs / 60_000) })}
+                  </span>
+                  <button
+                    type="button"
+                    className={css.delete}
+                    aria-label={confirming === row.childId
+                      ? (row.running ? t('task.delete.confirm.running') : t('task.delete.confirm'))
+                      : t('task.delete')}
+                    onClick={() => onDelete(row.childId)}
+                  >
+                    {confirming === row.childId
+                      ? (row.running ? t('task.delete.confirm.running') : t('task.delete.confirm'))
+                      : t('task.delete')}
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
         <button type="button" className={css.newTask} onClick={onNew}>{t('task.new')}</button>
