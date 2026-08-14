@@ -29,3 +29,26 @@ controller 持有 `createSnapshotStore` 实例、对话源、按会话的 localS
 - **迷你对话为拉取式（非流式）**——事件窗口只回填当前会话，因此面板在选中任务时拉取该任务的持久历史（`session.history`），并在运行回合结束或发送后刷新。进行中的回复显示「运行中」指示，回合结束后一次性完整显示。
 - **面板单归属**——面板跟随当前会话（`useSessions.current`）；切换会话时面板重新指向新归属者的集合。暂无多面板侧边任务视图。
 - **运行中禁用排队发送**——回合运行期间输入框锁定，不提供主输入框的排队语义；任务需先结束才能发送下一条。
+
+## 安装
+
+仓库自带预构建产物（`lib/`），普通用户两步安装，无需任何构建工具链：
+
+```sh
+git clone https://github.com/uluckystar/dsh-client-ui-side-tasks
+dsh plugin --profile web add ./dsh-client-ui-side-tasks   # 或你的当前 profile
+# 重启 profile 使 bundle 元数据生效
+```
+
+**依赖说明**：本插件依赖官方 harness 的 `session.delete` 与 `session.history` 能力（2025 年 8 月后的源码构建引入）。如果你的 DSH 版本早于它们，面板的历史渲染与零残留删除将不可用——请使用最新源码 checkout 或包含这些能力的发布版本。
+
+### 源码构建（仅开发者）
+
+```sh
+git clone https://github.com/uluckystar/dsh-client-ui-side-tasks
+cd dsh-client-ui-side-tasks
+pnpm install
+pnpm bundle
+```
+
+注意：官方 `@deepseek-ai/*` 的 rc 包在 npm 上是分批发布的——若 `pnpm install` 报缺少某个包（如 `@deepseek-ai/dsh-compact`），可从官方 harness 工作区解析，或等待该 rc 包发布。
