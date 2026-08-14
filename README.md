@@ -34,3 +34,34 @@ None from the plugin itself. Sending inside a task extends that child session's 
 - **Expiry sweep runs while the page is open** — a task left idle with the browser closed stays until the next page load (the persisted activity timestamps resume the countdown then); there is no host-side janitor. — the event window only backfills the current session, so the panel fetches the selected task's durable history (`session.history`) on selection and refreshes when a running turn settles or after a send. A reply in progress shows a 「运行中」 indicator and appears in full once the turn ends.
 - **Panel is single-owner** — it follows the current session (`useSessions.current`); switching sessions re-points the panel to the new owner's collection. There is no multi-pane side-task view.
 - **Queued sends while running are disabled** — the composer locks during a running turn instead of offering the main composer's queue semantics; a task must settle before the next prompt.
+
+## Installation
+
+The repository ships prebuilt bundles (`lib/`), so a normal user installs
+in two steps — no build toolchain needed:
+
+```sh
+git clone https://github.com/uluckystar/dsh-client-ui-side-tasks
+dsh plugin --profile web add ./dsh-client-ui-side-tasks   # or your active profile
+# restart the profile for the bundle metadata to take effect
+```
+
+**Dependency note**: this plugin relies on the `session.delete` and
+`session.history` capabilities, which landed in the official harness in
+August 2025 source builds. If your DSH build predates them, the panel's
+history rendering and residue-free delete will not work — use a current
+source checkout or a released version that includes them.
+
+### Building from source (developers only)
+
+```sh
+git clone https://github.com/uluckystar/dsh-client-ui-side-tasks
+cd dsh-client-ui-side-tasks
+pnpm install
+pnpm bundle
+```
+
+Note: the official `@deepseek-ai/*` release candidates are published to npm
+incrementally — if `pnpm install` reports a missing package (e.g.
+`@deepseek-ai/dsh-compact`), resolve it from the official harness workspace
+checkout or wait for the rc to be published.
