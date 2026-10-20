@@ -46,11 +46,17 @@ dsh plugin --profile web add ./dsh-client-ui-side-tasks   # or your active profi
 # restart the profile for the bundle metadata to take effect
 ```
 
+**Client-only package**: this package declares browser client metadata, not a
+host `dsh.bundle` layer. The CLI may report that it installed a plain dependency.
+Verify the browser boot/module list and the panel after restarting; do not
+assume that a successful package download means the UI is active. Some DSH
+builds already include this UI, so check before installing a duplicate.
+
 **Dependency note**: this plugin relies on the `session.delete` and
-`session.history` capabilities, which landed in the official harness in
-August 2025 source builds. If your DSH build predates them, the panel's
-history rendering and residue-free delete will not work — use a current
-source checkout or a released version that includes them.
+`session.history` capabilities, which must be available in the DSH build you actually use. Check these
+capabilities before installation; a repository date or version label alone
+is not an install/boot test. Without them, history rendering and complete
+child-session deletion are unavailable.
 
 ### Building from source (developers only)
 
