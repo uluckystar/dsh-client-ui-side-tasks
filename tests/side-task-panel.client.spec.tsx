@@ -60,6 +60,7 @@ function messageEntry(type: 'user/message' | 'assistant/message', text: string, 
 
 function renderPanel(options: {
   open?: boolean
+  lifecycleSupported?: boolean
   tasks?: string[]
   selected?: string
   running?: boolean
@@ -125,6 +126,7 @@ function renderPanel(options: {
 
   const view = render(<SideTaskPanel {...({
     useSessions,
+    lifecycleSupported: options.lifecycleSupported,
     useSideTasks: bindSnapshotSelector(store),
     createTask,
     deleteTask,
@@ -478,4 +480,16 @@ describe('SideTaskPanel expiry countdown', () => {
     // not a countdown).
     expect(screen.queryByText(/还剩 \d+ 分钟自动删除/)).toBeNull()
   })
+})
+
+
+it('unsupported lifecycle disables creation/deletion and does not promise automatic expiry', () => {
+  const face=renderPanel({tasks:['task-1'],selected:'task-1',lifecycleSupported:false,lastActivity:{'task-1':Date.now()}})
+  const create=screen.getByRole('button',{name:zh['task.new']}) as HTMLButtonElement
+  const remove=screen.getByRole('button',{name:zh['task.delete']}) as HTMLButtonElement
+  expect(create.disabled).toBe(true);expect(remove.disabled).toBe(true)
+  fireEvent.click(create);fireEvent.click(remove)
+  expect(face.createTask).not.toHaveBeenCalled();expect(face.deleteTask).not.toHaveBeenCalled()
+  expect(screen.queryByText(zh['task.ttl'])).toBeNull()
+  expect(screen.getAllByText(zh['task.unsupported']).length).toBeGreaterThan(0)
 })

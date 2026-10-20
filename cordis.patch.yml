@@ -1,0 +1,5 @@
+# MyDSH standalone activation: register the inert host half so DSH discovers the client module.
+# Only install once; remove another side-task UI registration before enabling this package.
+- insert:
+    - id: mydsh-side-tasks
+      name: "@deepseek-ai/dsh-client-ui-side-tasks"

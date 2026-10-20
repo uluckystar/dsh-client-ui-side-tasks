@@ -40,7 +40,9 @@ dsh plugin --profile web add ./dsh-client-ui-side-tasks   # 或你的当前 prof
 # 重启 profile 使 bundle 元数据生效
 ```
 
-**依赖说明**：本插件依赖官方 harness 的 `session.delete` 与 `session.history` 能力（2025 年 8 月后的源码构建引入）。如果你的 DSH 版本早于它们，面板的历史渲染与零残留删除将不可用——请使用最新源码 checkout 或包含这些能力的发布版本。
+**独立挂载（MyDSH rc.6）**：安装包包含 `dsh.bundle` 补丁，挂载无业务逻辑的 host 入口后，DSH 才能发现浏览器模块。仅安装为普通依赖不代表功能已激活。重启后应确认浏览器加载了 `@deepseek-ai/dsh-client-ui-side-tasks/client.js`，并在会话标题处看到侧边任务入口。若当前 DSH 已自带该界面，应先移除另一处注册，避免重复挂载。
+
+**依赖说明**：需要当前 DSH 实际提供 `session.delete` 与 `session.history`；不能只凭仓库日期或版本标签判断。缺少这些能力时，历史显示和完整删除不可用。当前测试固定 DSH 源码提交为 `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca`，不保证任意其他版本兼容。
 
 ### 源码构建（仅开发者）
 
@@ -52,3 +54,14 @@ pnpm bundle
 ```
 
 注意：官方 `@deepseek-ai/*` 的 rc 包在 npm 上是分批发布的——若 `pnpm install` 报缺少某个包（如 `@deepseek-ai/dsh-compact`），可从官方 harness 工作区解析，或等待该 rc 包发布。
+
+### 固定版本验收与能力边界
+
+在 DSH `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca`（CLI rc.7）独立隔离 profile
+中，已验证包安装、host 层挂载、浏览器模块加载。这个运行版本没有暴露本插件旧接口所需的
+`ctx.sessions.history` / `ctx.sessions.delete`，因此 rc.6 会明确提示并禁用创建/删除，
+避免创建无法清理的子会话，也不再抛出浏览器 TypeError。**这不等于该版本完整生命周期通过**，
+在此版本不能依赖一小时自动删除。
+
+控制器/UI 测试使用显式服务桩，只证明插件逻辑，不代替各 DSH 版本的创建、刷新、关闭、删除
+和过期清理实测。不要用归档冒充删除，也不要把隐藏面板当成释放子会话。

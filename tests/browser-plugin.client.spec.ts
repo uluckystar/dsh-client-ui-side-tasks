@@ -7,7 +7,7 @@
  * reservation.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import { SlotRegistry, type SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
@@ -41,7 +41,7 @@ function runInject(entry: { inject?: unknown }, args: unknown[] = []): unknown {
 }
 
 /** Boot the browser half over a real slot tree that declares both seats. */
-async function bench(options: { historyError?: string } = {}): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
+async function bench(options: { historyError?: string; unsupported?: boolean; createError?: boolean } = {}): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   ctx.slots.register({
@@ -52,10 +52,10 @@ async function bench(options: { historyError?: string } = {}): Promise<{ ctx: Co
     },
   } as never, () => null)
   ctx.provide('sessions', {
-    fork: async () => sid('task-child'),
+    fork: async () => { if (options.createError) throw new Error('fork failed'); return sid('task-child') },
     archiveSession: async () => undefined,
-    delete: async () => undefined,
-    history: async () => options.historyError === undefined
+    delete: options.unsupported ? undefined : async () => undefined,
+    history: options.unsupported ? undefined : async () => options.historyError === undefined
       ? { ok: true, value: { events: [], hasMore: false } }
       : { ok: false, error: { code: 'internal', message: options.historyError, details: {} } },
     binding: () => undefined,
@@ -190,6 +190,29 @@ describe('ui-side-tasks expiry sweep boot', () => {
     // throw against the empty collections.
     await new Promise(resolve => setTimeout(resolve, 5))
     expect(ctx.slots.entries('shell.overlay')).toHaveLength(1)
+    await fiber.dispose()
+  })
+})
+
+
+describe('standalone runtime capability boundaries', () => {
+  it('missing lifecycle methods do not fork a child or cause an uncaught history error', async () => {
+    const {ctx,fiber}=await bench({unsupported:true})
+    const face=runInject(ctx.slots.entries('shell.overlay')[0]!) as {createTask(id:SessionId):Promise<void>;fetchHistory(id:SessionId):Promise<{ok:boolean;message?:string}>;hooks:{sideTasks:{getSnapshot():{actionError:string|null;tasksBySession:Record<string,unknown>}}}}
+    const existing=structuredClone(face.hooks.sideTasks.getSnapshot().tasksBySession)
+    const fork=vi.spyOn(ctx.sessions,'fork')
+    await expect(face.createTask(sid('owner-1'))).resolves.toBeUndefined()
+    expect(fork).not.toHaveBeenCalled()
+    expect(face.hooks.sideTasks.getSnapshot().actionError).toContain('no task was created')
+    expect(face.hooks.sideTasks.getSnapshot().tasksBySession).toEqual(existing)
+    expect((await face.fetchHistory(sid('existing'))).ok).toBe(false)
+    await fiber.dispose()
+  })
+  it('a real fork rejection is surfaced in the panel rather than unhandled', async () => {
+    const {ctx,fiber}=await bench({createError:true})
+    const face=runInject(ctx.slots.entries('shell.overlay')[0]!) as {createTask(id:SessionId):Promise<void>;hooks:{sideTasks:{getSnapshot():{actionError:string|null}}}}
+    await face.createTask(sid('owner-1'))
+    expect(face.hooks.sideTasks.getSnapshot().actionError).toBe('fork failed')
     await fiber.dispose()
   })
 })

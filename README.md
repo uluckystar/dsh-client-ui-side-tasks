@@ -46,11 +46,13 @@ dsh plugin --profile web add ./dsh-client-ui-side-tasks   # or your active profi
 # restart the profile for the bundle metadata to take effect
 ```
 
-**Client-only package**: this package declares browser client metadata, not a
-host `dsh.bundle` layer. The CLI may report that it installed a plain dependency.
-Verify the browser boot/module list and the panel after restarting; do not
-assume that a successful package download means the UI is active. Some DSH
-builds already include this UI, so check before installing a duplicate.
+**Standalone activation (MyDSH rc.6)**: the package includes a `dsh.bundle`
+patch that mounts its inert host entry. That registration is required for DSH to
+discover and load the browser module; a plain dependency installation alone is
+not proof of activation. Restart the profile, then verify that the browser loaded
+`@deepseek-ai/dsh-client-ui-side-tasks/client.js` and the session header shows the
+side-task action. Some DSH builds already include a side-task UI: remove the
+other registration before enabling a duplicate.
 
 **Dependency note**: this plugin relies on the `session.delete` and
 `session.history` capabilities, which must be available in the DSH build you actually use. Check these
@@ -77,3 +79,18 @@ checkout or wait for the rc to be published.
 本仓库是 MyDSH 非官方社区维护版本，与 DeepSeek 官方无隶属关系，保留上游 MIT 授权。它提供临时 fork 任务，不应被描述为长期讨论记忆系统。长期讨论记录、用户确认后保存的助手记忆等方案应作为独立能力评估。
 
 不同 DSH 版本的客户端注入和槽位接口可能变化。安装前请在独立 profile 验证任务创建、主子会话归属、停止、删除与重载；仓库元数据或声明校验通过不能代替这些实测。
+
+### Fixed-version validation and capability boundary
+
+On DSH source commit `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca` (CLI rc.7),
+a clean isolated profile confirms installation, host-layer registration and
+browser-module loading. That runtime does **not** expose the legacy client
+`ctx.sessions.history` / `ctx.sessions.delete` methods this plugin's temporary
+lifecycle requires. rc.6 therefore disables creation/deletion and explains the
+missing capability instead of creating children that cannot be cleaned up or
+throwing a browser TypeError. This is **not** a passing full lifecycle test on
+that DSH version. Do not rely on one-hour expiry there.
+
+Controller/UI tests use explicit service fixtures; they are not a claim that
+every DSH build implements these methods. Supported versions still need their
+own create, reload, close, deletion and idle-expiry acceptance.

@@ -1,33 +1,14 @@
 {
-  "extends": "../../../tsconfig.base.client.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "lib/types"
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
   },
   "include": [
     "src"
-  ],
-  "references": [
-    {
-      "path": "../../../vendor/cordis"
-    },
-    {
-      "path": "../locale"
-    },
-    {
-      "path": "../runtime"
-    },
-    {
-      "path": "../ui-conversation"
-    },
-    {
-      "path": "../ui-layout"
-    },
-    {
-      "path": "../ui-slots"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
-    }
   ]
 }

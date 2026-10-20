@@ -45,11 +45,23 @@ const SWEEP_INTERVAL_MS = 30_000
 export function apply(ctx: ClientContext): void {
   // Explicit forwarding, never a spread: ctx.sessions carries its methods on
   // the prototype, so `{...ctx.sessions}` would strip every verb.
+  const legacy = ctx.sessions as unknown as Pick<SideTasksSessions, 'delete' | 'history'>
+  const unsupported = '当前 DSH 未提供侧边任务所需的历史/删除能力；未创建任务。 Required session history/delete capability unavailable; no task was created.'
   const sessions: SideTasksSessions = {
     fork: opts => ctx.sessions.fork(opts),
     archiveSession: sessionId => ctx.workspaces.archiveSession(sessionId),
-    delete: sessionId => ctx.sessions.delete(sessionId),
-    history: (sessionId, opts) => ctx.sessions.history(sessionId, opts),
+    delete: async sessionId => {
+      if (typeof legacy.delete !== 'function') throw new Error(unsupported)
+      await legacy.delete.call(ctx.sessions, sessionId)
+    },
+    history: async (sessionId, opts) => {
+      try {
+        if (typeof legacy.history !== 'function') throw new Error(unsupported)
+        return await legacy.history.call(ctx.sessions, sessionId, opts)
+      } catch (error) {
+        return { ok: false, error: { code: 'internal', message: error instanceof Error ? error.message : String(error), details: {} } }
+      }
+    },
     binding: sessionId => ctx.sessions.binding(sessionId),
     list: ctx.sessions.list,
   }
@@ -87,10 +99,18 @@ export function apply(ctx: ClientContext): void {
     order: 10,
     locale: NS,
     inject: (): SideTaskPanelInjected => ({
+      lifecycleSupported: typeof legacy.delete === 'function' && typeof legacy.history === 'function',
       hooks: {
         sideTasks: controller.store,
       },
-      createTask: async ownerSessionId => { await controller.createTask(ownerSessionId) },
+      createTask: async ownerSessionId => {
+        try {
+          if (typeof legacy.delete !== 'function' || typeof legacy.history !== 'function') throw new Error(unsupported)
+          await controller.createTask(ownerSessionId)
+        } catch (error) {
+          controller.store.update(draft => { draft.actionError = error instanceof Error ? error.message : String(error) })
+        }
+      },
       deleteTask: (ownerSessionId, childId) => controller.deleteTask(ownerSessionId, childId),
       sendTask: (childId, text) => controller.sendTask(childId, text),
       stopTask: childId => controller.stopTask(childId),

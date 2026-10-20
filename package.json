@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-side-tasks",
   "description": "MyDSH 非官方社区维护的侧边任务插件：按主会话管理 fork 子会话与临时任务。",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.6",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -30,6 +30,9 @@
         "@deepseek-ai/dsh-client-ui-layout"
       ],
       "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
     }
   },
   "scripts": {
@@ -66,12 +69,16 @@
     "@deepseek-ai/dsh-client-web-react": "^0.0.1-rc.1",
     "@deepseek-ai/dsh-invariants": "^0.0.1-rc.1",
     "@types/react": "~18.3.1",
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "tsdown": "0.22.2",
+    "lightningcss": "^1.33.0",
+    "typescript": "^5.9.3"
   },
   "files": [
     "lib/index.js",
     "lib/invariant.js",
     "lib/client.js",
-    "lib/types/**/*.d.ts"
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml"
   ]
 }

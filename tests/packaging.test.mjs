@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync,existsSync} from 'node:fs';
+const root=new URL('../',import.meta.url),pkg=JSON.parse(readFileSync(new URL('package.json',root)));
+test('standalone install declares and ships the host activation layer',()=>{assert.equal(pkg.dsh.bundle.patch,'./cordis.patch.yml');assert(pkg.files.includes('cordis.patch.yml'));const patch=readFileSync(new URL(pkg.dsh.bundle.patch,root),'utf8');assert(patch.includes('id: mydsh-side-tasks'));assert(patch.includes(pkg.name));assert(pkg.dsh.client.inject.length>0);assert(existsSync(new URL(pkg.exports['./client'].default,root)));});
+test('distributed inert host entry has a real apply export',async()=>{const entry=await import(new URL(pkg.main,root));assert.equal(typeof entry.apply,'function');assert.equal(entry.apply(),undefined);});

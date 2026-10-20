@@ -27,6 +27,8 @@ import css from './SideTaskPanel.module.css'
 
 /** Registration-side business face of the panel. */
 export interface SideTaskPanelInjected {
+  /** False means this DSH lacks the full temporary-task lifecycle; do not create orphaned children. */
+  lifecycleSupported?: boolean
   hooks: {
     /** The shared panel store, bound by the renderer as `useSideTasks`. */
     sideTasks: { getSnapshot(): SideTaskState; subscribe(fn: () => void): () => void }
@@ -115,7 +117,7 @@ async function loadHistory(
 export function SideTaskPanel({
   useSessions, useSideTasks,
   createTask, deleteTask, sendTask, stopTask, selectTask, collapsePanel, expandPanel, dismissError, closePanel,
-  fetchHistory, t,
+  fetchHistory, lifecycleSupported = true, t,
 }: SideTaskPanelProps) {
   const current = useSessions(state => state.current)
   const state = useSideTasks(snapshot => snapshot)
@@ -266,7 +268,7 @@ export function SideTaskPanel({
                     <span className={css.taskTitle}>{row.title}</span>
                   </button>
                   <span className={css.expiry} aria-hidden="true">
-                    {row.running
+                    {!lifecycleSupported ? '' : row.running
                       ? t('task.running')
                       : remainingMs === undefined
                         ? ''
@@ -275,6 +277,7 @@ export function SideTaskPanel({
                   <button
                     type="button"
                     className={css.delete}
+                    disabled={!lifecycleSupported}
                     aria-label={confirming === row.childId
                       ? (row.running ? t('task.delete.confirm.running') : t('task.delete.confirm'))
                       : t('task.delete')}
@@ -289,7 +292,7 @@ export function SideTaskPanel({
             })}
           </ul>
         )}
-        <button type="button" className={css.newTask} onClick={onNew}>{t('task.new')}</button>
+        <button type="button" className={css.newTask} disabled={!lifecycleSupported} onClick={onNew}>{t('task.new')}</button>
       </div>
       <div className={css.conversation}>
         {selected === undefined ? (
@@ -316,7 +319,7 @@ export function SideTaskPanel({
                 ref={inputRef}
                 className={css.input}
                 value={draft}
-                disabled={busy}
+                disabled={busy || !lifecycleSupported}
                 placeholder={t('conversation.placeholder')}
                 aria-label={t('conversation.placeholder')}
                 onChange={event => setDraft(event.target.value)}
@@ -328,7 +331,7 @@ export function SideTaskPanel({
                   </button>
                 )
                 : (
-                  <button type="submit" className={css.send} disabled={busy || draft.trim() === '' || selected === undefined}>
+                  <button type="submit" className={css.send} disabled={!lifecycleSupported || busy || draft.trim() === '' || selected === undefined}>
                     {t('conversation.send')}
                   </button>
                 )}
@@ -336,7 +339,7 @@ export function SideTaskPanel({
           </>
         )}
       </div>
-      <footer className={css.footer}>{t('task.ttl')}</footer>
+      <footer className={css.footer}>{t(lifecycleSupported ? 'task.ttl' : 'task.unsupported')}</footer>
     </aside>
   )
 }
