@@ -12,6 +12,7 @@
  * store handle mounts under exactly one scope).
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { historyReader } from './history.ts'
 import { createSideTasksController, type SideTasksSessions } from './controller.ts'
 import { SideTaskAction, type SideTaskActionInjected } from './SideTaskAction.tsx'
 import { SideTaskPanel, type SideTaskPanelInjected } from './SideTaskPanel.tsx'
@@ -32,7 +33,7 @@ export type { SideTaskPanelInjected } from './SideTaskPanel.tsx'
 export type { SideTaskKey } from './locales.ts'
 
 /** Required services: slot registration, sessions + workspaces ports, and copy. */
-export const inject = ['slots', 'sessions', 'workspaces', 'locale']
+export const inject = ['slots', 'sessions', 'workspaces', 'locale', 'connection']
 
 /** Expiry sweep cadence: a lazy check, never a busy one. */
 const SWEEP_INTERVAL_MS = 30_000
@@ -46,6 +47,7 @@ export function apply(ctx: ClientContext): void {
   // Explicit forwarding, never a spread: ctx.sessions carries its methods on
   // the prototype, so `{...ctx.sessions}` would strip every verb.
   const legacy = ctx.sessions as unknown as Pick<SideTasksSessions, 'delete' | 'history'>
+  const history = historyReader(legacy, ctx.connection.api.sessions)
   const unsupported = '当前 DSH 未提供侧边任务所需的历史/删除能力；未创建任务。 Required session history/delete capability unavailable; no task was created.'
   const sessions: SideTasksSessions = {
     fork: opts => ctx.sessions.fork(opts),
@@ -54,14 +56,7 @@ export function apply(ctx: ClientContext): void {
       if (typeof legacy.delete !== 'function') throw new Error(unsupported)
       await legacy.delete.call(ctx.sessions, sessionId)
     },
-    history: async (sessionId, opts) => {
-      try {
-        if (typeof legacy.history !== 'function') throw new Error(unsupported)
-        return await legacy.history.call(ctx.sessions, sessionId, opts)
-      } catch (error) {
-        return { ok: false, error: { code: 'internal', message: error instanceof Error ? error.message : String(error), details: {} } }
-      }
-    },
+    history: history.read,
     binding: sessionId => ctx.sessions.binding(sessionId),
     list: ctx.sessions.list,
   }
@@ -99,13 +94,13 @@ export function apply(ctx: ClientContext): void {
     order: 10,
     locale: NS,
     inject: (): SideTaskPanelInjected => ({
-      lifecycleSupported: typeof legacy.delete === 'function' && typeof legacy.history === 'function',
+      lifecycleSupported: typeof legacy.delete === 'function' && history.available(),
       hooks: {
         sideTasks: controller.store,
       },
       createTask: async ownerSessionId => {
         try {
-          if (typeof legacy.delete !== 'function' || typeof legacy.history !== 'function') throw new Error(unsupported)
+          if (typeof legacy.delete !== 'function' || !history.available()) throw new Error(unsupported)
           await controller.createTask(ownerSessionId)
         } catch (error) {
           controller.store.update(draft => { draft.actionError = error instanceof Error ? error.message : String(error) })

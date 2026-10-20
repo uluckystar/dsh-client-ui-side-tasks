@@ -94,3 +94,15 @@ that DSH version. Do not rely on one-hour expiry there.
 Controller/UI tests use explicit service fixtures; they are not a claim that
 every DSH build implements these methods. Supported versions still need their
 own create, reload, close, deletion and idle-expiry acceptance.
+
+### rc.7: read existing history through the declared wire API
+
+The pinned DSH build does expose `connection.api.sessions.history` even though
+the older `ctx.sessions.history` helper is absent. rc.7 adapts that read-only
+method, preserving pagination and RPC errors. Legacy business rejection never
+triggers a second-path retry. Existing task history can be displayed without
+creating a new child, and the owner's fork seed remains hidden.
+
+Durable deletion is still unverified on this build: creation/deletion and the
+one-hour cleanup promise remain disabled. See `docs/compatibility.md` for
+source-contract evidence and the remaining acceptance requirements.

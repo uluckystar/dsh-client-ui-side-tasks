@@ -80,7 +80,7 @@ async function bench(options: { historyError?: string; unsupported?: boolean; cr
 
 describe('ui-side-tasks browser half', () => {
   it('declares the services it binds', () => {
-    expect(inject).toEqual(['slots', 'sessions', 'workspaces', 'locale'])
+    expect(inject).toEqual(['slots', 'sessions', 'workspaces', 'locale', 'connection'])
   })
 
   it('registers the header action and the overlay panel; fiber teardown removes both (HMR safety)', async () => {
