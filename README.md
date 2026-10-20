@@ -65,3 +65,9 @@ Note: the official `@deepseek-ai/*` release candidates are published to npm
 incrementally — if `pnpm install` reports a missing package (e.g.
 `@deepseek-ai/dsh-compact`), resolve it from the official harness workspace
 checkout or wait for the rc to be published.
+
+## 社区维护与兼容性
+
+本仓库是 MyDSH 非官方社区维护版本，与 DeepSeek 官方无隶属关系，保留上游 MIT 授权。它提供临时 fork 任务，不应被描述为长期讨论记忆系统。长期讨论记录、用户确认后保存的助手记忆等方案应作为独立能力评估。
+
+不同 DSH 版本的客户端注入和槽位接口可能变化。安装前请在独立 profile 验证任务创建、主子会话归属、停止、删除与重载；仓库元数据或声明校验通过不能代替这些实测。

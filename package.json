@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-side-tasks",
-  "description": "Side tasks: a temporary per-session task panel beside the main conversation (forked child sessions with mini conversations, deleted without residue)",
+  "description": "MyDSH 非官方社区维护的侧边任务插件：按主会话管理 fork 子会话与临时任务。",
   "version": "0.1.0-rc.5",
   "type": "module",
   "main": "lib/index.js",
@@ -39,8 +39,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
-    "directory": "packages/client/ui-side-tasks"
+    "url": "git+https://github.com/uluckystar/dsh-client-ui-side-tasks.git"
   },
   "publishConfig": {
     "access": "public"
