@@ -50,3 +50,8 @@
 The existing destructive lifecycle protection is unchanged: this release
 does not establish a durable delete API, enable task creation/deletion on
 the guarded host, or close the full-lifecycle compatibility issue.
+
+An additional non-skipping build gate rebuilds the full source in two independent
+temporary directories and compares every bundle, declaration and map byte hash.
+CSS virtual module ids are project-relative and export keys are sorted, avoiding
+build-root leakage and nondeterministic class-map enumeration.

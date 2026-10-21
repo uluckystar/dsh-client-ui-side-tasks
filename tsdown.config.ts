@@ -16,13 +16,13 @@ export default defineConfig([
     define:{'process.env.NODE_ENV':'"production"'},
     plugins:[{
       name:'mydsh-css-modules',
-      resolveId(source,importer){if(source.endsWith('.module.css'))return cssPrefix+resolve(dirname(importer!),source)+'.mjs'},
+      resolveId(source,importer){if(source.endsWith('.module.css'))return cssPrefix+relative(projectRoot,resolve(dirname(importer!),source))+'.mjs'},
       async load(moduleId){
         if(!moduleId.startsWith(cssPrefix))return
-        const path=moduleId.slice(cssPrefix.length,-4)
+        const path=resolve(projectRoot,moduleId.slice(cssPrefix.length,-4))
         this.addWatchFile(path)
         const result=transform({filename:relative(projectRoot,path),code:await readFile(path),cssModules:{pattern:'[hash]_[local]'},minify:true})
-        const classes=Object.fromEntries(Object.entries(result.exports??{}).map(([key,value])=>[key,value.name]))
+        const classes=Object.fromEntries(Object.entries(result.exports??{}).sort(([a],[b])=>a<b?-1:a>b?1:0).map(([key,value])=>[key,value.name]))
         const tag=id+'/'+basename(path)
         return `if(typeof document!=='undefined'&&!document.querySelector('style[data-plugin-css='+JSON.stringify(${JSON.stringify(tag)})+']')){const s=document.createElement('style');s.dataset.plugin=${JSON.stringify(id)};s.dataset.pluginCss=${JSON.stringify(tag)};s.textContent=${JSON.stringify(result.code.toString())};document.head.appendChild(s)};export default ${JSON.stringify(classes)}`
       },
