@@ -23,4 +23,17 @@ export interface TaskMessageRow {
  * @returns the ordered text rows.
  */
 export declare function taskMessageRows(entries: readonly HistoryEntry[] | undefined): TaskMessageRow[];
+/**
+ * Extract the task's OWN message rows, hiding the forked seed context: the
+ * side task carries the owner's full history in its log, but the panel is a
+ * scratchpad — it shows only messages written after the task's OWN seed
+ * boundary. The boundary is the LAST `session/end-seed`: the seed may itself
+ * nest earlier end-seed markers (the owner was resumed or forked before),
+ * and only the task's own marker sits after all seeded messages. A page that
+ * does not reach the boundary (a task with more messages than one page)
+ * falls back to the whole page.
+ * @param entries - pulled history entries, or undefined while none are loaded.
+ * @returns the ordered text rows of the task's own conversation.
+ */
+export declare function taskOwnMessageRows(entries: readonly HistoryEntry[] | undefined): TaskMessageRow[];
 //# sourceMappingURL=messages.d.ts.map

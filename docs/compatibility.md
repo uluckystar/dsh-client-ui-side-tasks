@@ -6,7 +6,7 @@
 | 能力 | 固定版本证据 | 本包处理 |
 | --- | --- | --- |
 | 旧 `ctx.sessions.history` | `packages/client/runtime/src/client/contract/sessions.ts` 的 `ISessions` 没有此方法 | 不再把旧方法缺失当作所有历史读取不可用 |
-| 正式 wire 历史 | `packages/host/apiproxy/src/api/sessions.ts` 的 `SessionsApi.history`；`packages/client/connection/src/client/index.ts` 的 `connection.api` | 旧方法不存在时，使用 `ctx.connection.api.sessions.history({sessionId, maxMessages, beforeSeq})`，返回 `response.result` |
+| 正式 wire 历史 | `packages/host/apiproxy/src/api/sessions.ts` 的 `SessionsApi.history`；`packages/client/connection/src/client/index.ts` 的 `connection.api` | 旧方法不存在时，通过 `ctx.get('connection')` 的 `api.sessions.history({sessionId, maxMessages, beforeSeq})`，返回 `response.result` |
 | 旧方法业务拒绝 | 旧方法返回 `ok:false` | 原样返回，不绕到其他接口重试 |
 | 完整删除 | 当前 `ISessions`、`SessionsApi` 和 `SessionPersistence` 声明没有可验证的端到端耐久删除契约 | 不猜测任意同名方法；保持禁用新建/删除，不直接删数据文件 |
 | `workspace.detachSession` | `packages/workspace/workspace/src/types.ts` 仅移除工作区关联 | 不是删除持久日志/宿主 agent，不能冒充删除 |
@@ -25,3 +25,28 @@
 需要一份经宿主支持的删除契约，覆盖正在运行的agent取消/收敛、所有workspace关联、持久日志、查询索引及失败重试。
 还要明确独占归属与幂等删除；共享/重新挂载的会话不能被旧任务无条件删除。
 在固定版本实测上述行为、关闭与删除区别、重载恢复和过期清理后，才能解除保护。
+
+## rc.8: acknowledged operations and distribution checks
+
+- Sends/stops succeed only after a valid `RpcResult` with `ok: true` and
+  `value.accepted: true`. Missing bindings, rejected/malformed envelopes and
+  transport exceptions stay failures. Failed sends do not refresh activity.
+- Failed sends keep the composer draft. A late acknowledgement cannot clear
+  newer edits or the draft after switching tasks; repeated submissions while
+  an acknowledgement is pending are suppressed. Acceptance is not a promise
+  that a model turn completed or that its transcript is already durable.
+- Build/typecheck use compiled declarations from an explicit `DSH_CHECKOUT`;
+  they do not install fake ambient types or typecheck against a different
+  source tree. Host peer versions now match the tested rc.7 SDK instead of
+  the stale 0.0.1 prerelease range. This remains a tested-target declaration,
+  not verification of other host releases.
+- `npm run typecheck`, `npm run build:types`, and `npm run build` require
+  TypeScript/build dev dependencies and an SDK checkout whose declarations
+  have already been built. Set `DSH_CHECKOUT` to that checkout. Release
+  evidence must record its full Git SHA. Declarations are regenerated from
+  current source; declaration maps, bundle maps and their own source files
+  are included in the package.
+
+The existing destructive lifecycle protection is unchanged: this release
+does not establish a durable delete API, enable task creation/deletion on
+the guarded host, or close the full-lifecycle compatibility issue.

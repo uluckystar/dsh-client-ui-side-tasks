@@ -38,9 +38,9 @@ export interface SideTaskPanelInjected {
   /** Durably delete one task (host dispose + persistence delete). */
   deleteTask(ownerSessionId: SessionId, childId: SessionId): Promise<void>
   /** Send a text message into a task (queued). */
-  sendTask(childId: SessionId, text: string): Promise<void>
+  sendTask(childId: SessionId, text: string): Promise<boolean>
   /** Cancel the running turn of a task. */
-  stopTask(childId: SessionId): Promise<void>
+  stopTask(childId: SessionId): Promise<boolean>
   /** Select one task for the mini conversation. */
   selectTask(childId: SessionId): void
   /** Collapse the panel to the top-right chip. */
@@ -123,6 +123,10 @@ export function SideTaskPanel({
   const state = useSideTasks(snapshot => snapshot)
   const byId = useSessions(snapshot => snapshot.byId as Record<string, { displayTitle?: string; running?: boolean } | undefined>)
   const [draft, setDraft] = useState('')
+  const draftRevision = useRef(0)
+  const sendPending = useRef(false)
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<SessionId | null>(null)
   const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -146,6 +150,8 @@ export function SideTaskPanel({
   const selected = rows.some(row => row.childId === state.selected) ? state.selected : undefined
   // Only the task's OWN messages render: the forked seed context is the
   // task's working memory, not its transcript.
+  const selectionRef = useRef(selected)
+  selectionRef.current = selected
   const messages = useMemo(() => taskOwnMessageRows(entries ?? undefined), [entries])
   const running = selected !== undefined && byId[selected]?.running === true
   const busy = running || loading
@@ -208,11 +214,22 @@ export function SideTaskPanel({
   const onSend = (event: FormEvent): void => {
     event.preventDefault()
     const text = draft.trim()
-    if (text === '' || selected === undefined || busy) return
-    void sendTask(selected, text).then(() => {
-      setDraft('')
-      // The send landed in the durable log: re-pull to show the echo.
-      setReloadKey(key => key + 1)
+    if (text === '' || selected === undefined || busy || sendPending.current || !lifecycleSupported) return
+    const revision = draftRevision.current
+    const target = selected
+    sendPending.current = true
+    setSending(true)
+    setSendError(null)
+    void sendTask(target, text).then(accepted => {
+      if (accepted !== true) return
+      // A late reply must not clear newer edits or a different task's draft.
+      if (draftRevision.current === revision && selectionRef.current === target) setDraft('')
+      if (selectionRef.current === target) setReloadKey(key => key + 1)
+    }).catch(error => {
+      setSendError(error instanceof Error ? error.message : 'Message send failed / 消息发送失败')
+    }).finally(() => {
+      sendPending.current = false
+      setSending(false)
     })
   }
   const onDelete = (childId: SessionId): void => {
@@ -233,14 +250,14 @@ export function SideTaskPanel({
           <button type="button" className={css.close} aria-label={t('panel.close')} onClick={closePanel}>×</button>
         </div>
       </header>
-      {state.actionError !== null && (
+      {(state.actionError !== null || sendError !== null) && (
         <div className={css.errorBar} role="alert">
-          <span className={css.errorText}>{t('panel.error')}: {state.actionError}</span>
+          <span className={css.errorText}>{t('panel.error')}: {sendError ?? state.actionError}</span>
           <button
             type="button"
             className={css.errorClose}
             aria-label={t('panel.error.close')}
-            onClick={dismissError}
+            onClick={() => { setSendError(null); dismissError() }}
           >
             ×
           </button>
@@ -322,7 +339,7 @@ export function SideTaskPanel({
                 disabled={busy || !lifecycleSupported}
                 placeholder={t('conversation.placeholder')}
                 aria-label={t('conversation.placeholder')}
-                onChange={event => setDraft(event.target.value)}
+                onChange={event => { draftRevision.current++; setDraft(event.target.value) }}
               />
               {running
                 ? (
@@ -331,7 +348,7 @@ export function SideTaskPanel({
                   </button>
                 )
                 : (
-                  <button type="submit" className={css.send} disabled={!lifecycleSupported || busy || draft.trim() === '' || selected === undefined}>
+                  <button type="submit" className={css.send} disabled={!lifecycleSupported || busy || sending || draft.trim() === '' || selected === undefined}>
                     {t('conversation.send')}
                   </button>
                 )}

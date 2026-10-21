@@ -117,8 +117,8 @@ describe('ui-side-tasks browser half', () => {
       hooks: { sideTasks: unknown }
       createTask: (owner: SessionId) => Promise<void>
       deleteTask: (owner: SessionId, child: SessionId) => Promise<void>
-      sendTask: (child: SessionId, text: string) => Promise<void>
-      stopTask: (child: SessionId) => Promise<void>
+      sendTask: (child: SessionId, text: string) => Promise<boolean>
+      stopTask: (child: SessionId) => Promise<boolean>
       selectTask: (child: SessionId) => void
       collapsePanel: () => void
       expandPanel: () => void
@@ -151,8 +151,8 @@ describe('ui-side-tasks browser half', () => {
     panelFace.dismissError()
     panelFace.collapsePanel()
     panelFace.expandPanel()
-    await expect(panelFace.sendTask(sid('task-a'), 'hi')).resolves.toBeUndefined()
-    await expect(panelFace.stopTask(sid('task-a'))).resolves.toBeUndefined()
+    await expect(panelFace.sendTask(sid('task-a'), 'hi')).resolves.toBe(false)
+    await expect(panelFace.stopTask(sid('task-a'))).resolves.toBe(false)
     await expect(panelFace.createTask(sid('owner-1'))).resolves.toBeUndefined()
     await expect(panelFace.deleteTask(sid('owner-1'), sid('task-a'))).resolves.toBeUndefined()
     headerFace.togglePanel()

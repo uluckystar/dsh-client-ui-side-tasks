@@ -4,6 +4,8 @@ import type { NS } from './locales.ts';
 import type { SideTaskState } from './store.ts';
 /** Registration-side business face of the panel. */
 export interface SideTaskPanelInjected {
+    /** False means this DSH lacks the full temporary-task lifecycle; do not create orphaned children. */
+    lifecycleSupported?: boolean;
     hooks: {
         /** The shared panel store, bound by the renderer as `useSideTasks`. */
         sideTasks: {
@@ -16,11 +18,17 @@ export interface SideTaskPanelInjected {
     /** Durably delete one task (host dispose + persistence delete). */
     deleteTask(ownerSessionId: SessionId, childId: SessionId): Promise<void>;
     /** Send a text message into a task (queued). */
-    sendTask(childId: SessionId, text: string): Promise<void>;
+    sendTask(childId: SessionId, text: string): Promise<boolean>;
     /** Cancel the running turn of a task. */
-    stopTask(childId: SessionId): Promise<void>;
+    stopTask(childId: SessionId): Promise<boolean>;
     /** Select one task for the mini conversation. */
     selectTask(childId: SessionId): void;
+    /** Collapse the panel to the top-right chip. */
+    collapsePanel(): void;
+    /** Expand the collapsed chip back to the full panel. */
+    expandPanel(): void;
+    /** Dismiss the current action error shown in the panel. */
+    dismissError(): void;
     /** Close the panel without touching tasks. */
     closePanel(): void;
     /**
@@ -42,5 +50,5 @@ export type SideTaskPanelProps = PropsRuntime<'shell.overlay'> & InjectFace<Side
  * @param props - composed slot props.
  * @returns the panel, or null while closed or no session is current.
  */
-export declare function SideTaskPanel({ useSessions, useSideTasks, createTask, deleteTask, sendTask, stopTask, selectTask, closePanel, fetchHistory, t, }: SideTaskPanelProps): import("react").JSX.Element | null;
+export declare function SideTaskPanel({ useSessions, useSideTasks, createTask, deleteTask, sendTask, stopTask, selectTask, collapsePanel, expandPanel, dismissError, closePanel, fetchHistory, lifecycleSupported, t, }: SideTaskPanelProps): import("react").JSX.Element | null;
 //# sourceMappingURL=SideTaskPanel.d.ts.map

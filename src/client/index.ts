@@ -16,6 +16,7 @@ import { historyReader } from './history.ts'
 import { createSideTasksController, type SideTasksSessions } from './controller.ts'
 import { SideTaskAction, type SideTaskActionInjected } from './SideTaskAction.tsx'
 import { SideTaskPanel, type SideTaskPanelInjected } from './SideTaskPanel.tsx'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -47,7 +48,8 @@ export function apply(ctx: ClientContext): void {
   // Explicit forwarding, never a spread: ctx.sessions carries its methods on
   // the prototype, so `{...ctx.sessions}` would strip every verb.
   const legacy = ctx.sessions as unknown as Pick<SideTasksSessions, 'delete' | 'history'>
-  const history = historyReader(legacy, ctx.connection.api.sessions)
+  const connection = ctx.get('connection') as ConnectionHandle
+  const history = historyReader(legacy, connection.api.sessions)
   const unsupported = '当前 DSH 未提供侧边任务所需的历史/删除能力；未创建任务。 Required session history/delete capability unavailable; no task was created.'
   const sessions: SideTasksSessions = {
     fork: opts => ctx.sessions.fork(opts),

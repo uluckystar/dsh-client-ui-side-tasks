@@ -66,6 +66,9 @@ child-session deletion are unavailable.
 git clone https://github.com/uluckystar/dsh-client-ui-side-tasks
 cd dsh-client-ui-side-tasks
 pnpm install
+# Use a DSH checkout with its declarations already built.
+export DSH_CHECKOUT=/path/to/deepseek-harness
+pnpm typecheck
 pnpm bundle
 ```
 
@@ -106,3 +109,18 @@ creating a new child, and the owner's fork seed remains hidden.
 Durable deletion is still unverified on this build: creation/deletion and the
 one-hour cleanup promise remain disabled. See `docs/compatibility.md` for
 source-contract evidence and the remaining acceptance requirements.
+
+### rc.8: operation acknowledgements and current declarations
+
+Failed or malformed send/stop RPC results and missing bindings no longer look
+like success. Failed sends preserve the current composer draft and activity
+time; pending submissions are not duplicated, and a late acknowledgement does
+not erase newer edits or another selected task's draft. Acknowledgement is not
+a model-completion or durable-transcript guarantee.
+
+The standalone build now typechecks against the explicit SDK's compiled types
+and regenerates the current declarations. Package maps and their own source
+files ship together; the host peers match the tested rc.7 SDK. Verified by
+142 logic/UI tests, four packaging checks and a separate tarball/public-type
+consumer. Creation, durable deletion and automatic cleanup remain guarded,
+not newly certified by these tests. See `docs/compatibility.md`.

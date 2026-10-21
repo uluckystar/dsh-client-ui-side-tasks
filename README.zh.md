@@ -50,6 +50,9 @@ dsh plugin --profile web add ./dsh-client-ui-side-tasks   # 或你的当前 prof
 git clone https://github.com/uluckystar/dsh-client-ui-side-tasks
 cd dsh-client-ui-side-tasks
 pnpm install
+# Use a DSH checkout with its declarations already built.
+export DSH_CHECKOUT=/path/to/deepseek-harness
+pnpm typecheck
 pnpm bundle
 ```
 
@@ -74,3 +77,14 @@ pnpm bundle
 
 当前版本的耐久删除依然未验证，因此新建、删除和一小时清理承诺仍保持禁用。
 历史可读不等于完整生命周期通过。具体正式接口依据和剩余验收见 `docs/compatibility.md`。
+
+### rc.8：操作确认、失败草稿保留与发行类型
+
+发送/停止现在检查真实RPC业务结果；绑定缺失、业务拒绝、异常响应和传输错误都不会当成功。
+发送失败不清空当前输入框草稿、不更新活动时间；等待确认时避免重复提交，迟到回执不会
+擦掉新编辑的文本或切换任务后的草稿。确认仅代表宿主接受操作，不代表模型已完成或历史已持久落盘。
+
+构建现在针对显式DSH_CHECKOUT的已编译SDK声明做真实typecheck，并重新生成当前声明。
+发行包包含声明map、bundle map及对应源码，宿主peer版本与已测试rc.7对齐。
+验收包括142项逻辑/UI、4项打包检查及独立tgz安装/公开类型消费检查。
+这些测试不代表完整生命周期通过：新建、耐久删除及自动清理的保护继续保留，详见兼容性文档。

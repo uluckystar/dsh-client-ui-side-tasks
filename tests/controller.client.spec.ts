@@ -220,11 +220,11 @@ describe('controller store + verbs', () => {
     expect(binding.session.prompt).toHaveBeenCalledTimes(1)
   })
 
-  it('no-ops send/stop when the session binding is gone', async () => {
+  it('reports unavailable send/stop when the session binding is gone', async () => {
     const sessions = fakeSessions()
     const controller = createSideTasksController(sessions)
-    await expect(controller.sendTask(sid('ghost'), 'hi')).resolves.toBeUndefined()
-    await expect(controller.stopTask(sid('ghost'))).resolves.toBeUndefined()
+    await expect(controller.sendTask(sid('ghost'), 'hi')).resolves.toBe(false)
+    await expect(controller.stopTask(sid('ghost'))).resolves.toBe(false)
   })
 
   it('stops the running turn through the bound session cancel', async () => {
@@ -651,5 +651,58 @@ describe('collapse/expand error clearing', () => {
     controller.store.update(draft => { draft.actionError = 'boom' })
     controller.expandPanel()
     expect(controller.store.getSnapshot().actionError).toBeNull()
+  })
+})
+
+describe('RPC acknowledgements', () => {
+  it('does not treat a missing binding as a successful send or stop', async () => {
+    const controller = createSideTasksController(fakeSessions())
+    expect(await controller.sendTask(sid('gone'), 'keep this draft')).toBe(false)
+    expect(controller.store.getSnapshot().lastActivity['gone' as never]).toBeUndefined()
+    expect(controller.store.getSnapshot().actionError).toMatch(/unavailable|不可用/i)
+    expect(await controller.stopTask(sid('gone'))).toBe(false)
+    expect(controller.store.getSnapshot().actionError).toMatch(/unavailable|不可用/i)
+  })
+
+  it('does not touch activity or clear errors when prompt returns a rejected RPC result', async () => {
+    const sessions = fakeSessions(); const binding = makeBinding('child-1')
+    vi.mocked(binding.session.prompt).mockResolvedValueOnce({ok:false,error:{code:'internal',message:'quota denied',details:{}}})
+    sessions.bindings.set('child-1',binding)
+    const controller = createSideTasksController(sessions)
+    controller.store.update(draft => { draft.lastActivity['child-1' as never] = 123 })
+    expect(await controller.sendTask(sid('child-1'),'hello')).toBe(false)
+    expect(controller.store.getSnapshot().lastActivity['child-1' as never]).toBe(123)
+    expect(controller.store.getSnapshot().actionError).toBe('quota denied')
+  })
+
+  it('surfaces cancel RPC errors instead of reporting successful stop', async () => {
+    const sessions = fakeSessions(); const binding = makeBinding('child-1')
+    vi.mocked(binding.session.cancel).mockResolvedValueOnce({ok:false,error:{code:'internal',message:'cancel denied',details:{}}})
+    sessions.bindings.set('child-1',binding)
+    const controller = createSideTasksController(sessions)
+    expect(await controller.stopTask(sid('child-1'))).toBe(false)
+    expect(controller.store.getSnapshot().actionError).toBe('cancel denied')
+  })
+
+  it('fails closed for malformed or unaccepted successful-looking replies', async () => {
+    for (const response of [undefined,null,{}, {ok:true}, {ok:true,value:{}}, {ok:true,value:{accepted:false}}, {ok:'true',value:{accepted:true}}]) {
+      const sessions = fakeSessions(); const binding = makeBinding('child-1')
+      vi.mocked(binding.session.prompt).mockResolvedValueOnce(response as never)
+      sessions.bindings.set('child-1',binding)
+      const controller = createSideTasksController(sessions)
+      expect(await controller.sendTask(sid('child-1'),'hello')).toBe(false)
+      expect(controller.store.getSnapshot().lastActivity['child-1' as never]).toBeUndefined()
+      expect(controller.store.getSnapshot().actionError).toBeTruthy()
+    }
+  })
+
+  it('returns true only for acknowledged sends and stops, and false for empty text', async () => {
+    const sessions = fakeSessions(); const binding = makeBinding('child-1')
+    sessions.bindings.set('child-1',binding)
+    const controller = createSideTasksController(sessions)
+    expect(await controller.sendTask(sid('child-1'),'  ')).toBe(false)
+    expect(binding.session.prompt).not.toHaveBeenCalled()
+    expect(await controller.sendTask(sid('child-1'),'hello')).toBe(true)
+    expect(await controller.stopTask(sid('child-1'))).toBe(true)
   })
 })

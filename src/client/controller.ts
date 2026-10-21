@@ -143,9 +143,9 @@ export interface SideTasksController {
    * @param childId - the task child session.
    * @param text - the message text.
    */
-  sendTask(childId: SessionId, text: string): Promise<void>
+  sendTask(childId: SessionId, text: string): Promise<boolean>
   /** Cancel the running turn of a task session. */
-  stopTask(childId: SessionId): Promise<void>
+  stopTask(childId: SessionId): Promise<boolean>
   /**
    * Pull a task session's durable transcript from the Host (the event window
    * only backfills the current session, so the panel reads history directly).
@@ -166,6 +166,16 @@ export interface SideTasksController {
  */
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+
+/** RPC resolution alone is not acceptance: failed/malformed envelopes fail closed. */
+function requireAcknowledged(result: unknown): void {
+  const reply = result as { ok?: unknown; value?: { accepted?: unknown }; error?: { message?: unknown } } | null
+  if (reply?.ok === true && reply.value?.accepted === true) return
+  const message = reply?.error?.message
+  throw new Error(typeof message === 'string' && message.trim() !== ''
+    ? message : 'Session operation was not acknowledged / 会话操作未被确认')
 }
 
 /**
@@ -359,22 +369,30 @@ export function createSideTasksController(sessions: SideTasksSessions): SideTask
     },
     sendTask: async (childId, text) => {
       const trimmed = text.trim()
-      if (trimmed === '') return
+      if (trimmed === '') return false
       try {
-        await sessions.binding(childId)?.session.prompt([{ type: 'text', text: trimmed }], 'queue')
+        const binding = sessions.binding(childId)
+        if (!binding) throw new Error('Session binding unavailable / 会话绑定不可用')
+        requireAcknowledged(await binding.session.prompt([{ type: 'text', text: trimmed }], 'queue'))
         touch(childId, Date.now())
         persistForOwnerOf(childId, store)
         clearError()
+        return true
       } catch (error) {
         store.update(draft => { draft.actionError = errorMessage(error) })
+        return false
       }
     },
     stopTask: async (childId) => {
       try {
-        await sessions.binding(childId)?.session.cancel()
+        const binding = sessions.binding(childId)
+        if (!binding) throw new Error('Session binding unavailable / 会话绑定不可用')
+        requireAcknowledged(await binding.session.cancel())
         clearError()
+        return true
       } catch (error) {
         store.update(draft => { draft.actionError = errorMessage(error) })
+        return false
       }
     },
     fetchHistory: (childId, opts) =>

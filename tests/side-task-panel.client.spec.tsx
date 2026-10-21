@@ -109,8 +109,8 @@ function renderPanel(options: {
 
   const createTask = vi.fn(async () => undefined)
   const deleteTask = vi.fn(async () => undefined)
-  const sendTask = vi.fn(async () => undefined)
-  const stopTask = vi.fn(async () => undefined)
+  const sendTask = vi.fn(async () => true)
+  const stopTask = vi.fn(async () => true)
   const selectTask = vi.fn()
   const collapsePanel = vi.fn()
   const expandPanel = vi.fn()
@@ -492,4 +492,61 @@ it('unsupported lifecycle disables creation/deletion and does not promise automa
   expect(face.createTask).not.toHaveBeenCalled();expect(face.deleteTask).not.toHaveBeenCalled()
   expect(screen.queryByText(zh['task.ttl'])).toBeNull()
   expect(screen.getAllByText(zh['task.unsupported']).length).toBeGreaterThan(0)
+})
+
+describe('composer RPC acknowledgements', () => {
+  it('keeps the draft and does not reload history after a rejected send', async () => {
+    const {sendTask,fetchHistory} = renderPanel({tasks:['task-a'],selected:'task-a',history:[]})
+    await waitFor(() => expect(screen.getByText('新任务,直接对话')).toBeTruthy())
+    sendTask.mockResolvedValueOnce(false)
+    const calls = fetchHistory.mock.calls.length
+    const input = screen.getByRole('textbox',{name:'输入消息…'}) as HTMLInputElement
+    fireEvent.change(input,{target:{value:'do not lose me'}})
+    await act(async () => {fireEvent.submit(input.closest('form')!)})
+    expect(sendTask).toHaveBeenCalledWith('task-a','do not lose me')
+    expect(input.value).toBe('do not lose me')
+    expect(fetchHistory.mock.calls.length).toBe(calls)
+  })
+})
+
+describe('composer in-flight safety', () => {
+  it('does not duplicate a pending send or clear a newer edit on acknowledgement', async () => {
+    const {sendTask} = renderPanel({tasks:['task-a'],selected:'task-a',history:[]})
+    await waitFor(() => expect(screen.getByText('新任务,直接对话')).toBeTruthy())
+    let finish!: (accepted:boolean) => void
+    sendTask.mockImplementationOnce(() => new Promise<boolean>(resolve => {finish=resolve}))
+    const input=screen.getByRole('textbox',{name:'输入消息…'}) as HTMLInputElement
+    fireEvent.change(input,{target:{value:'first'}})
+    fireEvent.submit(input.closest('form')!)
+    fireEvent.submit(input.closest('form')!)
+    expect(sendTask).toHaveBeenCalledTimes(1)
+    fireEvent.change(input,{target:{value:'second draft'}})
+    await act(async () => {finish(true)})
+    expect(input.value).toBe('second draft')
+  })
+
+  it('keeps the draft and surfaces an unexpected promise rejection', async () => {
+    const {sendTask} = renderPanel({tasks:['task-a'],selected:'task-a',history:[]})
+    await waitFor(() => expect(screen.getByText('新任务,直接对话')).toBeTruthy())
+    sendTask.mockRejectedValueOnce(new Error('transport disconnected'))
+    const input=screen.getByRole('textbox',{name:'输入消息…'}) as HTMLInputElement
+    fireEvent.change(input,{target:{value:'retry this'}})
+    await act(async () => {fireEvent.submit(input.closest('form')!)})
+    expect(input.value).toBe('retry this')
+    expect(screen.getByRole('alert').textContent).toContain('transport disconnected')
+  })
+
+  it('does not clear the new selection draft when an earlier task finishes sending', async () => {
+    const {sendTask,store} = renderPanel({tasks:['task-a','task-b'],selected:'task-a',history:[]})
+    await waitFor(() => expect(screen.getByText('新任务,直接对话')).toBeTruthy())
+    let finish!: (accepted:boolean) => void
+    sendTask.mockImplementationOnce(() => new Promise<boolean>(resolve => {finish=resolve}))
+    const input=screen.getByRole('textbox',{name:'输入消息…'}) as HTMLInputElement
+    fireEvent.change(input,{target:{value:'same text'}})
+    fireEvent.submit(input.closest('form')!)
+    act(() => {store.update(draft => {draft.selected='task-b' as never})})
+    await waitFor(() => expect(input.disabled).toBe(false))
+    await act(async () => {finish(true)})
+    expect(input.value).toBe('same text')
+  })
 })
